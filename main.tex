@@ -3,6 +3,8 @@
 \usepackage[utf8]{inputenc}
 \usepackage{times}
 \usepackage[czech]{babel}
+\usepackage{listings}
+\usepackage{url}
 \begin{document}
     \begin{titlepage}
         \begin{center}
@@ -21,29 +23,53 @@
 
 
 \section{Zmapování Středozemě}
+\subsection{Nalezené servery}
 
 \begin{table}[!ht]
     \centering
-    \begin{tabular}{|c|c|c|}
+    \begin{tabular}{|l|c|l|}
          \hline
          Název & IP & Služby \\ 
          \hline\hline
-         bis2024\_rivendell\_1 & 10.89.1.3 & SSH \\ 
+         bis2024\_rivendell\_1 & 10.89.1.3 & SSH - port 22\\ 
          \hline
-         bis2024\_isengard\_1 & 10.89.1.4 & HTTP \\
+         bis2024\_isengard\_1 & 10.89.1.4 & HTTP - port 80\\
          \hline
-         bis2024\_edoras\_1 & 10.89.1.5 & FTP \\
+         bis2024\_edoras\_1 & 10.89.1.5 & FTP - port 21\\
          \hline
-         bis2024\_mirkwood\_1 & 10.89.1.6 & HTTP \\
+         bis2024\_mirkwood\_1 & 10.89.1.6 & HTTP -port 80\\
          \hline
          bis2024\_admin\_1 & 10.89.1.2 & - \\
-         \hline
-         &  &  \\
          \hline
          
     \end{tabular}
     \caption{Caption}
     \label{tab:my_label}
 \end{table}
+
+\subsection{Nalezené zranitelnosti}
+\subsubsection{bis2024\_rivendell\_1}
+
+SHELLSHOCK
+
+\subsubsection{bis2024\_isengard\_1}
+\subsubsection{bis2024\_edoras\_1}
+\subsubsection{bis2024\_mirkwood\_1} 
+
+SQL injection
+
+
+\subsubsection{bis2024\_admin\_1}
+
+
+
+\section{Nalezení tajemství}
+\subsection{Tajemství D}
+Pro objevení tajemství D jsem vycházel z nápovědy D. Tajemství se nachází na serveru \uv{bis2024 mirkwood 1} is IP \uv{10.89.1.6}. Na tomto serveru běží HTTP server na portu 80. 
+
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.6/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a \url{/upload.html}, z nichž je pro tajemství D klíčový odkaz \url{/authentication.html}. Dotaz na \url{http://10.89.1.6/authentication.html} odhalí, že se jedná o autentizační formulář, který je odeslán na \url{authenticate.php}. Po odeslání formuláře pomocí \texttt{curl} s daty \verb|-F "username=name" -F "password=pass' hello"| na \url{authenticate.php} se zobrazí chybová hláška SQLite3 databáze. Po upravení hodnoty s heslem ve formuláři na \linebreak \verb|-F "password=pass' OR '1'='1"| je patrné, že php script neošetřuje útoky typu SQL Injection a~zároveň, že po přihlášení došlo k přesměrování na \url{/list.php?id=0}. Id v URL je v tomto případě použito pro získání dat z databáze, čehož je možno zneužít použitím \verb|UNION|. Nejdříve je ale potřeba zjistit, kolik sloupců je ve výsledku dotazu z databáze, což lze pomocí \verb|ORDER BY| postupným zkoušením. Poté už jen stačí položit dotaz na data z předpokládané tabulky \verb|users| dosazením za \url{/list.php?id=} URL-encoded příkaz \linebreak \verb|2 UNION SELECT username,password,NULL from users--|, čímž se odhalí tajemství D.
+
+
+
 
 \end{document}
