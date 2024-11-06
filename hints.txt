@@ -44,6 +44,8 @@ Perhaps, you should start gathering other information about his friend somewhere
 
 Notes:
 
+username+pass ulozeno na stejnem miste jako tajmestvi D admin + iloveyou
+
 ********** HINT C **********
 Secret C is easily retrieved from lousy workers at the elven kingdom.
 
@@ -56,6 +58,8 @@ Snuck a fake, possibly malicious package - a php script-like payload - through t
 
 Notes: Mirkwood, possible File inclusion
 
+?: curl -v -X POST  -H "Content-Type: multipart/form-data" -F "file=@img.gif;type=image/jpeg" http://10.89.1.6/upload.php
+
 ********** HINT D **********
 The dark forest is a place of many webs and bugs, some of them hardly visible.
 
@@ -65,7 +69,7 @@ Once you arrive to the right place, perhaps ask not only about items, but about 
 
 Some say, the best way to approach this task is through union.
 
-Notes: Mirkwood, possible SQL injection?
+Notes: Mirkwood, SQL injection
 
 SQLite3
 
@@ -91,4 +95,6 @@ A chest with a damaged lid - to a common bystander, this chest looks like a junk
 
 But Elrond is very persistent - he knows that the chest hides something.
 
-Notes: Rivendell, need to find ssh key
+Notes: Rivendell, username: elrond
+
+chest.img in /shrine

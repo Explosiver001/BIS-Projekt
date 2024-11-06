@@ -5,6 +5,7 @@
 \usepackage[czech]{babel}
 \usepackage{listings}
 \usepackage{url}
+\usepackage{hyperref}
 \begin{document}
     \begin{titlepage}
         \begin{center}
@@ -31,15 +32,15 @@
          \hline
          Název & IP & Služby \\ 
          \hline\hline
-         bis2024\_rivendell\_1 & 10.89.1.3 & SSH - port 22\\ 
+         bis2024\_rivendell\_1 & 10.89.1.3 (10.89.1.168)& SSH - port 22\\ 
          \hline
-         bis2024\_isengard\_1 & 10.89.1.4 & HTTP - port 80\\
+         bis2024\_isengard\_1 & 10.89.1.4 (10.89.1.157)& HTTP - port 80\\
          \hline
-         bis2024\_edoras\_1 & 10.89.1.5 & FTP - port 21\\
+         bis2024\_edoras\_1 & 10.89.1.5 (10.89.1.158)& FTP - port 21\\
          \hline
-         bis2024\_mirkwood\_1 & 10.89.1.6 & HTTP -port 80\\
+         bis2024\_mirkwood\_1 & 10.89.1.6 (10.89.1.159)& HTTP -port 80\\
          \hline
-         bis2024\_admin\_1 & 10.89.1.2 & - \\
+         bis2024\_admin\_1 & 10.89.1.2 (10.89.1.155)& - \\
          \hline
          
     \end{tabular}
@@ -49,10 +50,11 @@
 
 \subsection{Nalezené zranitelnosti}
 \subsubsection{bis2024\_rivendell\_1}
-
-SHELLSHOCK
+Plaintext attack BKCRYPT 
+https://www.acceis.fr/cracking-encrypted-archives-pkzip-zip-zipcrypto-winzip-zip-aes-7-zip-rar/
 
 \subsubsection{bis2024\_isengard\_1}
+SHELLSHOCK
 \subsubsection{bis2024\_edoras\_1}
 \subsubsection{bis2024\_mirkwood\_1} 
 
@@ -64,11 +66,31 @@ SQL injection
 
 
 \section{Nalezení tajemství}
+
+\subsection{Tajemství A}
+Pro objevení tajemství A~jsem vycházel z nápovědy A. Tajemství se nachází na serveru \uv{bis2024\_isengard\_1} is IP \uv{10.89.1.4}. Na tomto serveru běží HTTP server na portu 80. V nápovědě je uvedený údaj \uv{2014-6271}, který odkazuje na \href{https://nvd.nist.gov/vuln/detail/cve-2014-6271}{CVE2014-6271}, tzv. SHELLSHOCK.
+
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.4/} načteme domovskou stránku HTTP serveru, na které je v komentáři vidět nápověda s~odkazem na \url{/cgi-bin/gate}. Pravděpodobně se tedy jedná o server používající CGI scripy, což podporuje předpoklad využitelnosti SHELLSHOCK zranitelnosti. Pomocí příkazu \texttt{curl} s~parametry \verb|-H "user-agent: () { :; }; echo ; /bin/dash -c 'ls -la /'" | a~url \url{http://10.89.1.4/cgi-bin/gate} je vidět, že příkaz \verb|ls -la /| je opravdu spuštěn pomocí http serveru. Z nápovědy poté vyplývá, že by se tajemství mohlo nacházet v souboru \verb|/etc/shadow|, jehož výpis je možné provést posláním příkazu \verb|cat /etc/shadow|.
+
+
+
+\subsection{Tajemství B}
+Pro objevení tajemství B jsem vycházel z nápovědy B. Tajemství se nachází na serveru \uv{ bis2024\_edoras\_1} is IP \uv{10.89.1.5}. Na tomto serveru běží FTP server na portu 21. Jelikož na uživatelské stroji není nainstalovaný FTP klient, přes nástroj \texttt{netcat} se mi nechtělo složitě pracovat a tunelování SSH mi ve spojení s FTP klientem nefungovalo, stáhl jsem si na uživatelský stroj nástroj \href{https://www.ncftp.com}{ncfpt} (což je jednoduchý FTP klient s předkompilovanými binárními soubory).
+
+FTP server nedovoluje přihlášení pomocí anonymního uživatele, je tedy nutné někde najít přihlašovací údaje. Přihlašovací údaje (jméno: admin, heslo: iloveyou) je možno odhalit společně s tajemstvím D na serveru \uv{ bis2024\_mirkwood\_1}. Příkazem \verb|./ncftp -u admin -p iloveyou 10.89.1.5| je možno se na server přihlásit. V adresáři \texttt{/home} se nachází domovský adresář uživatele admin a zároveň i adresář \texttt{theoden} (s omezeným přístupem), ve kterém se pravděpodobně schovává tajemství. Pak už jen stačí procházet soubory FTP serveru, přičemž nejdůležitější pro odhalení tajemství je soubor \texttt{/etc/shadow}. Pokud se na soubor podíváme pořádně, všimneme si, že uživatelé admin a theoden mají stejný hash hesla (a tedy i stejné heslo). Ze souboru \texttt{/etc/passwd} dále zjistíme, že uživatel theoden má domovský adresář  \texttt{/home/theoden}, do kterého chceme získat přístup. Pro objevení tajemství se tedy stačí na FTP server přihlásit jako uživatel theoden (heslo: iloveyou) a příkazem \verb|./ncftp -u theoden -p iloveyou 10.89.1.5| a přečíst jediný soubor v domovském adresáři.
+
+
+
 \subsection{Tajemství D}
-Pro objevení tajemství D jsem vycházel z nápovědy D. Tajemství se nachází na serveru \uv{bis2024 mirkwood 1} is IP \uv{10.89.1.6}. Na tomto serveru běží HTTP server na portu 80. 
+Pro objevení tajemství D jsem vycházel z nápovědy D. Tajemství se nachází na serveru \uv{ bis2024\_mirkwood\_1} is IP \uv{10.89.1.6}. Na tomto serveru běží HTTP server na portu 80. 
 
-Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.6/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a \url{/upload.html}, z nichž je pro tajemství D klíčový odkaz \url{/authentication.html}. Dotaz na \url{http://10.89.1.6/authentication.html} odhalí, že se jedná o autentizační formulář, který je odeslán na \url{authenticate.php}. Po odeslání formuláře pomocí \texttt{curl} s daty \verb|-F "username=name" -F "password=pass' hello"| na \url{authenticate.php} se zobrazí chybová hláška SQLite3 databáze. Po upravení hodnoty s heslem ve formuláři na \linebreak \verb|-F "password=pass' OR '1'='1"| je patrné, že php script neošetřuje útoky typu SQL Injection a~zároveň, že po přihlášení došlo k přesměrování na \url{/list.php?id=0}. Id v URL je v tomto případě použito pro získání dat z databáze, čehož je možno zneužít použitím \verb|UNION|. Nejdříve je ale potřeba zjistit, kolik sloupců je ve výsledku dotazu z databáze, což lze pomocí \verb|ORDER BY| postupným zkoušením. Poté už jen stačí položit dotaz na data z předpokládané tabulky \verb|users| dosazením za \url{/list.php?id=} URL-encoded příkaz \linebreak \verb|2 UNION SELECT username,password,NULL from users--|, čímž se odhalí tajemství D.
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.6/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a~\url{/upload.html}, z nichž je pro tajemství D klíčový odkaz \url{/authentication.html}. Dotaz na \url{http://10.89.1.6/authentication.html} odhalí, že se jedná o autentizační formulář, který je odeslán na \url{authenticate.php}. Po odeslání formuláře pomocí \texttt{curl} s~daty \verb|-F "username=name" -F "password=pass' hello"| na \url{authenticate.php} se zobrazí chybová hláška SQLite3 databáze. Po upravení hodnoty s~heslem ve formuláři na \linebreak \verb|-F "password=pass' OR '1'='1"| je patrné, že php script neošetřuje útoky typu SQL Injection a~zároveň, že po přihlášení došlo k přesměrování na \url{/list.php?id=0}. Id v URL je v tomto případě použito pro získání dat z databáze, čehož je možno zneužít použitím \verb|UNION|. Nejdříve je ale potřeba zjistit, kolik sloupců je ve výsledku dotazu z databáze, což lze pomocí \verb|ORDER BY| postupným zkoušením. Poté už jen stačí položit dotaz na data z předpokládané tabulky \verb|users| dosazením za \url{/list.php?id=} URL-encoded příkaz \linebreak \verb|2 UNION SELECT username,password,NULL from users--|, čímž se odhalí tajemství D. Dále je možno vyčíst přihlašovací údaje k FTP serveru běžícím na bis2024\_edoras\_1.
 
+
+\subsection{Tajemství E}
+Pro objevení tajemství D jsem vycházel z nápovědy E. Tajemství se nachází na serveru \uv{ bis2024\_rivendell\_1} is IP \uv{10.89.1.3}. Na tomto serveru běží SSH server na portu 22. Na server je možné se přihlásit přes SSH s~uživatelským jménem \texttt{elrond} za pomoci privátního \texttt{id\_rsa} klíče (objeveno v \texttt{.ssh/config}).
+
+Na serveru se v adresáři \texttt{/shrine}, který je vlastněný uživatelem \texttt{elrond}, nachází soubor \texttt{chest.img}. Soubor lze za pomoci \texttt{sftp} stáhnout až na lokální počítač, kde je možno provádět následnou analýzu. Nástroj \texttt{binwalk} o souboru prozrazuje, že obsahuje \texttt{zip} archiv, který je možno získat extrakcí za pomoci příkazu \verb|binwalk -e chest.img|. Extrakcí vznikne adresář obsahující soubory \texttt{scroll.xml} a~\texttt{2800000.zip}. Příkazem \verb|7z l -slt| lze odhalit, že zip archiv obsahuje soubor \texttt{scroll.xml} zašifrovaný pomocí \texttt{ZipCrypto Store}, který je náchylný na known plaintext útoky. K~prolomení šifrování je možno využít nástroj \href{https://github.com/kimci86/bkcrack}{bkcrack}. K použití nástroje je ale nutné mít alespoň nějaký known plaintext, k čemuž lze využít hlaviček XML souborů. Do prázdného a~nezašifrovaného souboru \texttt{scroll.xml} je tedy nutno zapsat část hlavičky, kterou pravděpodobně obsahuje každý XML soubor (\verb|<?xml version="1.0" |). Poté už je možno plně využít nástroje \texttt{bkcrack} a~odhalit šifrovací klíče, s~jejichž pomocí lze vytvořit kopii archivu s~vlastním heslem. Pak už jen stačí otevřít vytvořenou kopii, zadat vlastní heslo a~v souboru \texttt{scroll.xml} objevit tajemství E.   
 
 
 
