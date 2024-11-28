@@ -5,7 +5,16 @@
 \usepackage[czech]{babel}
 \usepackage{listings}
 \usepackage{url}
-\usepackage{hyperref}
+\usepackage[colorlinks=false,hidelinks]{hyperref}
+
+\lstset{
+    frame=single,
+    basicstyle=\ttfamily\normalsize,
+    keepspaces=true,   
+    breakatwhitespace=true,         
+    breaklines=true,
+}
+
 \begin{document}
     \begin{titlepage}
         \begin{center}
@@ -14,12 +23,12 @@
             \vspace{\stretch{0.382}}
 
             \LARGE{Bezpečnost informačních systémů\\}
-            \Huge{Projekt \-- Starověké zlo se probouzí}
+            \Huge{Projekt – Starověké zlo se probouzí}
 
             \vspace{\stretch{0.618}}
         \end{center}
         
-        \Large{\today \hfill Michal Novák (xnovak3g)}
+        \Large{\today \hfill Bc. Michal Novák (xnovak3g)}
     \end{titlepage}
 
 
@@ -32,66 +41,160 @@
          \hline
          Název & IP & Služby \\ 
          \hline\hline
-         bis2024\_rivendell\_1 & 10.89.1.3 (10.89.1.168)& SSH - port 22\\ 
+         bis2024\_rivendell\_1 & 10.89.1.156 (10.89.1.3) & SSH - port 22\\ 
          \hline
-         bis2024\_isengard\_1 & 10.89.1.4 (10.89.1.157)& HTTP - port 80\\
+         bis2024\_isengard\_1 & 10.89.1.157 (10.89.1.4) & HTTP - port 80\\
          \hline
-         bis2024\_edoras\_1 & 10.89.1.5 (10.89.1.158)& FTP - port 21\\
+         bis2024\_edoras\_1 & 10.89.1.158 (10.89.1.5) & FTP - port 21\\
          \hline
-         bis2024\_mirkwood\_1 & 10.89.1.6 (10.89.1.159)& HTTP -port 80\\
+         bis2024\_mirkwood\_1 & 10.89.1.159 (10.89.1.6) & HTTP - port 80\\
          \hline
-         bis2024\_admin\_1 & 10.89.1.2 (10.89.1.155)& - \\
+         bis2024\_admin\_1 & 10.89.1.155 (10.89.1.2) & \\
          \hline
          
     \end{tabular}
-    \caption{Caption}
+    \caption{Nalezené servery}
     \label{tab:my_label}
 \end{table}
 
+Jelikož jsem s projektem začínal velmi brzo, podařilo se mi objevit i doménová jména serverů. Dále je u~každého serveru uvedena aktuální i původní IP adresa.
+
 \subsection{Nalezené zranitelnosti}
-\subsubsection{bis2024\_rivendell\_1}
-Plaintext attack BKCRYPT 
-https://www.acceis.fr/cracking-encrypted-archives-pkzip-zip-zipcrypto-winzip-zip-aes-7-zip-rar/
+\subsubsection{bis2024\_rivendell\_1 - SSH server}
+Zranitelnost není v nastavení samotného serveru, ale v šifrovaném souboru ukrytém na tomto serveru. K autentizaci na server je používán privátní RSA klíč. 
 
-\subsubsection{bis2024\_isengard\_1}
-SHELLSHOCK
-\subsubsection{bis2024\_edoras\_1}
-\subsubsection{bis2024\_mirkwood\_1} 
-
-SQL injection
+\begin{itemize}
+    \item Na serveru se nachází soubor \texttt{chest.img}, který obsahuje zašifrovaný adresář. K zašifrování tohoto adresáře je použit algoritmus ZipCrypto, který je náchylný na tzv. known-plaintext attack. Samotný soubor \texttt{chest.img} používá ke skrytí svého obsahu spíše metodu security through obscurity.
+    \item Zranitelnost je způsobena použitým šifrovacím algoritmem (a zašifrováním souboru, k němuž je lehké uhodnout known-plaintext.).
+    \item Pro lepší zabezpečení je doporučeno použít algoritmy s větší robustností (např. AES-256).
+\end{itemize}
 
 
-\subsubsection{bis2024\_admin\_1}
+\subsubsection{bis2024\_isengard\_1 - HTTP server}
+\begin{itemize}
+    \item Na serveru se nachází zranitelnost SHELLSHOCK (\href{https://nvd.nist.gov/vuln/detail/cve-2014-6271}{CVE-2014-6271}), která je zneužívána skrze CGI skripty spouštějící shell přímo na serveru.
+    \item Zranitelnost je způsobena nesprávným zpracováním proměnných prostředí a špatnou validací vstupů.
+    \item Prevence zahrnuje aktualizaci systému a Bash, zabezpečení CGI skriptů, použití Web Application \mbox{Firewallu} a ochranu proti nebezpečným HTTP hlavičkám.
+\end{itemize}
+
+
+\subsubsection{bis2024\_edoras\_1 - FTP server}
+\begin{itemize}
+    \item Přihlašovací údaje k jednomu z účtů na FTP serveru jsou uloženy v databázi, jejíž obsah lze jednoduše získat pomocí SQL injection na serveru \uv{bis2024\_mirkwood\_1}. Heslo je navíc v této databázi uloženo jako plaintext. Tento uživatel má přístup k citlivým souborům (např. \texttt{/etc/shadow}). Dále se na serveru vyskytují 2 účty se stejným heslem.
+    \item Zranitelnost na serveru je způsobena špatným nastavením přístupových práv k souborům a použitím shodného hesla pro dva účty.
+    \item Prevence v tomto případě zahrnuje lepší práci s přístupovými právy a zabezpečení hesel v databázi.
+\end{itemize}
+
+
+\subsubsection{bis2024\_mirkwood\_1 - HTTP server} 
+Na serveru se nachází 2 zranitelnosti.
+\begin{itemize}
+    \item {SQL injection}
+    \begin{itemize}
+        \item Data získaná formulářem a posílaná na server jsou přímo použita v SQL dotazech, což způsobuje zranitelnost typu SQL injection.
+        \item Na serveru neprobíhá dostatečné ošetření uživatelských vstupů. Dále je použit nebezpečný způsob pro vytváření SQL dotazů.
+        \item Prevence zahrnuje sanitaci a kontrolu uživatelských vstupů. Dále lze v PHP použít tzv. \uv{prepared statements} a \uv{PHP Data Objects}.
+    \end{itemize}
+    \item {File upload}
+    \begin{itemize}
+        \item Na server lze nahrát soubory, které obcházejí validaci a mohly by být použity k útoku.
+        \item Na serveru je implementována chybná validace nahraných souborů. Sice se kontroluje MIME type a přípona, ale kontrola na příponu není plně funkční. Dále server neošetřuje případy, kdy soubor nahraný není. 
+        \item Prevence by v podobném případě zahrnovala kontrolu nahraného souboru, kontrolu na MIME type a kontrolu přípony pomocí PHP funkce \verb|pathinfo($file, PATHINFO_EXTENSION)|. Dále lze omezit přístupová práva na adresář s nahranými soubory a znemožnit tak spuštění souboru. Pro úplnou ochranu je ještě možné pomocí nástrojů jako ImageMagick nebo GD sanitovat a~uložit v~požadovaném formátu. 
+    \end{itemize}
+\end{itemize}
+
+
+
 
 
 
 \section{Nalezení tajemství}
 
 \subsection{Tajemství A}
-Pro objevení tajemství A~jsem vycházel z nápovědy A. Tajemství se nachází na serveru \uv{bis2024\_isengard\_1} is IP \uv{10.89.1.4}. Na tomto serveru běží HTTP server na portu 80. V nápovědě je uvedený údaj \uv{2014-6271}, který odkazuje na \href{https://nvd.nist.gov/vuln/detail/cve-2014-6271}{CVE2014-6271}, tzv. SHELLSHOCK.
+Pro objevení tajemství A~jsem vycházel z nápovědy A. Tajemství se nachází na serveru \uv{bis2024\_isengard\_1} s~IP \uv{10.89.1.157}. Na tomto serveru běží HTTP server na portu 80. V nápovědě je uvedený údaj \uv{2014-6271}, který odkazuje na \href{https://nvd.nist.gov/vuln/detail/cve-2014-6271}{CVE-2014-6271}, tzv. SHELLSHOCK.
 
-Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.4/} načteme domovskou stránku HTTP serveru, na které je v komentáři vidět nápověda s~odkazem na \url{/cgi-bin/gate}. Pravděpodobně se tedy jedná o server používající CGI scripy, což podporuje předpoklad využitelnosti SHELLSHOCK zranitelnosti. Pomocí příkazu \texttt{curl} s~parametry \verb|-H "user-agent: () { :; }; echo ; /bin/dash -c 'ls -la /'" | a~url \url{http://10.89.1.4/cgi-bin/gate} je vidět, že příkaz \verb|ls -la /| je opravdu spuštěn pomocí http serveru. Z nápovědy poté vyplývá, že by se tajemství mohlo nacházet v souboru \verb|/etc/shadow|, jehož výpis je možné provést posláním příkazu \verb|cat /etc/shadow|.
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.157/} načteme domovskou stránku HTTP serveru, na které je v komentáři vidět nápověda s~odkazem na \url{/cgi-bin/gate}, jenž naznačuje použití CGI skriptů a podporuje předpoklad zneužitelnosti SHELLSHOCK zranitelnosti. Pomocí příkazu \texttt{curl} s~parametry \verb|-H "user-agent: () { :; }; echo ; /bin/bash -c 'ls -la /'"| a~url \url{http://10.89.1.157/cgi-bin/gate} je vidět, že příkaz \verb|ls -la /| je opravdu spuštěn pomocí http serveru. Z~nápovědy poté vyplývá, že by se tajemství mohlo nacházet v souboru \verb|/etc/shadow|, jehož výpis je možné provést posláním příkazu \verb|cat /etc/shadow|. V tomto souboru se opravdu tajemství nachází.
 
 
 
 \subsection{Tajemství B}
-Pro objevení tajemství B jsem vycházel z nápovědy B. Tajemství se nachází na serveru \uv{ bis2024\_edoras\_1} is IP \uv{10.89.1.5}. Na tomto serveru běží FTP server na portu 21. Jelikož na uživatelské stroji není nainstalovaný FTP klient, přes nástroj \texttt{netcat} se mi nechtělo složitě pracovat a tunelování SSH mi ve spojení s FTP klientem nefungovalo, stáhl jsem si na uživatelský stroj nástroj \href{https://www.ncftp.com}{ncfpt} (což je jednoduchý FTP klient s předkompilovanými binárními soubory).
+Pro objevení tajemství B jsem vycházel z nápovědy B. Tajemství se nachází na serveru \uv{ bis2024\_edoras\_1} s~IP \uv{10.89.1.158}. Na tomto serveru běží FTP server na portu 21. Jelikož na uživatelské stroji není nainstalovaný FTP klient, přes nástroj \texttt{netcat} se mi nechtělo složitě pracovat a tunelování SSH mi ve spojení s FTP klientem nefungovalo, stáhl jsem si na uživatelský stroj nástroj \href{https://www.ncftp.com}{ncfpt} (což je jednoduchý FTP klient s předkompilovanými binárními soubory).
 
-FTP server nedovoluje přihlášení pomocí anonymního uživatele, je tedy nutné někde najít přihlašovací údaje. Přihlašovací údaje (jméno: admin, heslo: iloveyou) je možno odhalit společně s tajemstvím D na serveru \uv{ bis2024\_mirkwood\_1}. Příkazem \verb|./ncftp -u admin -p iloveyou 10.89.1.5| je možno se na server přihlásit. V adresáři \texttt{/home} se nachází domovský adresář uživatele admin a zároveň i adresář \texttt{theoden} (s omezeným přístupem), ve kterém se pravděpodobně schovává tajemství. Pak už jen stačí procházet soubory FTP serveru, přičemž nejdůležitější pro odhalení tajemství je soubor \texttt{/etc/shadow}. Pokud se na soubor podíváme pořádně, všimneme si, že uživatelé admin a theoden mají stejný hash hesla (a tedy i stejné heslo). Ze souboru \texttt{/etc/passwd} dále zjistíme, že uživatel theoden má domovský adresář  \texttt{/home/theoden}, do kterého chceme získat přístup. Pro objevení tajemství se tedy stačí na FTP server přihlásit jako uživatel theoden (heslo: iloveyou) a příkazem \verb|./ncftp -u theoden -p iloveyou 10.89.1.5| a přečíst jediný soubor v domovském adresáři.
+FTP server nedovoluje přihlášení pomocí anonymního uživatele, je tedy nutné někde najít přihlašovací údaje. Přihlašovací údaje (jméno: admin, heslo: iloveyou) je možno odhalit společně s tajemstvím D na serveru \uv{ bis2024\_mirkwood\_1}. Příkazem \verb|ncftp -u admin -p iloveyou 10.89.1.158| je možno se na server přihlásit. V adresáři \texttt{/home} se nachází domovský adresář uživatele admin a zároveň i adresář \texttt{theoden} (s omezeným přístupem), ve kterém se pravděpodobně schovává tajemství. Pak už jen stačí procházet soubory FTP serveru, přičemž nejdůležitější pro odhalení tajemství je soubor \texttt{/etc/shadow}. Pokud se na soubor podíváme pořádně, všimneme si, že uživatelé admin a theoden mají stejný hash hesla (a tedy i stejné heslo). Ze souboru \texttt{/etc/passwd} dále zjistíme, že uživatel theoden má domovský adresář  \texttt{/home/theoden}, do kterého chceme získat přístup. Pro objevení tajemství se tedy stačí na FTP server přihlásit jako uživatel theoden (heslo: iloveyou) příkazem \verb|ncftp -u theoden -p iloveyou 10.89.1.158| a přečíst jediný soubor v domovském adresáři.
+
+
+
+\subsection{Tajemství C}
+
+Pro objevení tajemství C jsem vycházel z nápovědy C.  Tajemství se nachází na serveru \uv{ bis2024\_mirkwood\_1} s~IP \uv{10.89.1.159}. Na tomto serveru běží HTTP server na portu 80.
+
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.159/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a~\url{/upload.html}, z nichž je pro tajemství C klíčový odkaz \url{/upload.html}. Po \uv{načtení} stránky \url{/upload.html} lze vidět formulář, který na server nahrává soubory metodou POST na URL \url{/upload.php}. Nahráním libovolného souboru pomocí příkazu \texttt{curl} na danou URL server vypíše chybovou zprávu oznamující podporované typy souborů, což jsou obrázky ve formátu JPEG, PNG nebo GIF. Při dotazu na tu tutéž URL metodou POST bez přiloženého souboru se zobrazí chybová hláška, z níž lze vyčíst použitou metodu na ověření typu souboru \texttt{ mime\_content\_type()}. Odhalení zranitelnosti dále probíhalo metodou \uv{pokus-omyl} za pomoci nápovědy C. Aby soubor prošel implementovanou validací, musí obsahovat správný \uv{file signature} pro obrázky a přípona musí obsahovat opět správnou příponu obrázkového formátu, ovšem nemusí být poslední použitou příponou. Jelikož server pouze simuluje zranitelnost (nahrané soubory si nelze zobrazit), bylo hledání trochu složitější. Pokud se na server nahraje soubor se správným formátem, který ale zároveň lze spustit jako PHP script, je v odpovědi serveru vráceno tajemství.
+
+Postup k odhalení tajemství je ve výsledku poměrně jednoduchý. Prvně je potřeba vytvořit soubor ve správném formátu, který projde validací serveru. Takový soubor lze vytvořit v příkazové řádce příkazem \verb|echo -ne '\xFF\xD8\xFF\xEE\n'>file.jpg.php|. Byty \texttt{FF D8 FF EE} jsou signaturou pro JPG soubory, \texttt{.jpg} je validní přípona pro obrázky a \texttt{.php} je přípona PHP souborů. Do souboru lze poté napsat validní PHP kód (pro vyřešení není potřeba). 
+
+Příkazem \verb|curl -v -X POST -F "file=@file.jpg.php" http://10.89.1.159/upload.php| je do terminálu vypsáno tajemství C.
 
 
 
 \subsection{Tajemství D}
-Pro objevení tajemství D jsem vycházel z nápovědy D. Tajemství se nachází na serveru \uv{ bis2024\_mirkwood\_1} is IP \uv{10.89.1.6}. Na tomto serveru běží HTTP server na portu 80. 
+Pro objevení tajemství D jsem vycházel z nápovědy D. Tajemství se nachází na serveru \uv{ bis2024\_mirkwood\_1} s~IP \uv{10.89.1.159}. Na tomto serveru běží HTTP server na portu 80. 
 
-Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.6/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a~\url{/upload.html}, z nichž je pro tajemství D klíčový odkaz \url{/authentication.html}. Dotaz na \url{http://10.89.1.6/authentication.html} odhalí, že se jedná o autentizační formulář, který je odeslán na \url{authenticate.php}. Po odeslání formuláře pomocí \texttt{curl} s~daty \verb|-F "username=name" -F "password=pass' hello"| na \url{authenticate.php} se zobrazí chybová hláška SQLite3 databáze. Po upravení hodnoty s~heslem ve formuláři na \linebreak \verb|-F "password=pass' OR '1'='1"| je patrné, že php script neošetřuje útoky typu SQL Injection a~zároveň, že po přihlášení došlo k přesměrování na \url{/list.php?id=0}. Id v URL je v tomto případě použito pro získání dat z databáze, čehož je možno zneužít použitím \verb|UNION|. Nejdříve je ale potřeba zjistit, kolik sloupců je ve výsledku dotazu z databáze, což lze pomocí \verb|ORDER BY| postupným zkoušením. Poté už jen stačí položit dotaz na data z předpokládané tabulky \verb|users| dosazením za \url{/list.php?id=} URL-encoded příkaz \linebreak \verb|2 UNION SELECT username,password,NULL from users--|, čímž se odhalí tajemství D. Dále je možno vyčíst přihlašovací údaje k FTP serveru běžícím na bis2024\_edoras\_1.
+Dotazem pomocí příkazu \texttt{curl} na \url{http://10.89.1.159/} načteme domovskou stránku HTTP serveru, na které jsou zřetelné 2 odkazy \url{/authentication.html} a~\url{/upload.html}, z nichž je pro tajemství D klíčový odkaz \url{/authentication.html}. Dotaz na \url{http://10.89.1.159/authentication.html} odhalí, že se jedná o autentizační formulář, který je odeslán na \url{authenticate.php}. Po odeslání formuláře pomocí \texttt{curl} s~daty \verb|-F "username=name" -F "password=pass' hello"| na \url{authenticate.php} se zobrazí chybová hláška SQLite3 databáze. Po upravení hodnoty s~heslem ve formuláři na \linebreak \verb|-F "password=pass' OR '1'='1"| je patrné, že php script neošetřuje útoky typu SQL Injection a~zároveň, že po přihlášení došlo k přesměrování na \url{/list.php?id=0}. Id v URL je v tomto případě použito pro získání dat z databáze, čehož je možno zneužít použitím \verb|UNION|. Nejdříve je ale potřeba zjistit, kolik sloupců je ve výsledku dotazu z databáze, což lze pomocí \verb|ORDER BY| postupným zkoušením. Poté už jen stačí položit dotaz na data z předpokládané tabulky \verb|users| dosazením za \url{/list.php?id=} URL-encoded příkaz \linebreak \verb|2 UNION SELECT username,password,NULL from users--|, čímž se odhalí tajemství D. Dále lze z téže odpovědi vyčíst přihlašovací údaje k FTP serveru běžícím na bis2024\_edoras\_1.
 
 
 \subsection{Tajemství E}
-Pro objevení tajemství D jsem vycházel z nápovědy E. Tajemství se nachází na serveru \uv{ bis2024\_rivendell\_1} is IP \uv{10.89.1.3}. Na tomto serveru běží SSH server na portu 22. Na server je možné se přihlásit přes SSH s~uživatelským jménem \texttt{elrond} za pomoci privátního \texttt{id\_rsa} klíče (objeveno v \texttt{.ssh/config}).
+Pro objevení tajemství E jsem vycházel z nápovědy E. Tajemství se nachází na serveru \uv{ bis2024\_rivendell\_1} s~IP \uv{10.89.1.156}. Na tomto serveru běží SSH server na portu 22. Na server je možné se přihlásit přes SSH s~uživatelským jménem \texttt{elrond} za pomoci privátního \texttt{id\_rsa} klíče (objeveno v \texttt{.ssh/config}).
 
-Na serveru se v adresáři \texttt{/shrine}, který je vlastněný uživatelem \texttt{elrond}, nachází soubor \texttt{chest.img}. Soubor lze za pomoci \texttt{sftp} stáhnout až na lokální počítač, kde je možno provádět následnou analýzu. Nástroj \texttt{binwalk} o souboru prozrazuje, že obsahuje \texttt{zip} archiv, který je možno získat extrakcí za pomoci příkazu \verb|binwalk -e chest.img|. Extrakcí vznikne adresář obsahující soubory \texttt{scroll.xml} a~\texttt{2800000.zip}. Příkazem \verb|7z l -slt| lze odhalit, že zip archiv obsahuje soubor \texttt{scroll.xml} zašifrovaný pomocí \texttt{ZipCrypto Store}, který je náchylný na known plaintext útoky. K~prolomení šifrování je možno využít nástroj \href{https://github.com/kimci86/bkcrack}{bkcrack}. K použití nástroje je ale nutné mít alespoň nějaký known plaintext, k čemuž lze využít hlaviček XML souborů. Do prázdného a~nezašifrovaného souboru \texttt{scroll.xml} je tedy nutno zapsat část hlavičky, kterou pravděpodobně obsahuje každý XML soubor (\verb|<?xml version="1.0" |). Poté už je možno plně využít nástroje \texttt{bkcrack} a~odhalit šifrovací klíče, s~jejichž pomocí lze vytvořit kopii archivu s~vlastním heslem. Pak už jen stačí otevřít vytvořenou kopii, zadat vlastní heslo a~v souboru \texttt{scroll.xml} objevit tajemství E.   
+Na serveru se v adresáři \texttt{/shrine}, který je vlastněný uživatelem \texttt{elrond}, nachází soubor \texttt{chest.img}. Soubor lze za pomoci \texttt{sftp} stáhnout až na lokální počítač, kde je možno provádět následnou analýzu. Z přípony \texttt{img} lze usoudit, že soubor je obraz nějakého disku. Nástroj \texttt{binwalk} o souboru prozrazuje, že obsahuje \texttt{zip} archiv, který je možno získat extrakcí za pomoci příkazu \verb|binwalk -e chest.img|. Extrakcí vznikne adresář obsahující soubor \texttt{2800000.zip}. Příkazem \verb|7z l -slt| lze odhalit, že zip archiv obsahuje soubor \texttt{scroll.xml} zašifrovaný pomocí algoritmu \texttt{ZipCrypto Store}, který je náchylný na known plaintext útoky. K~prolomení šifrování je možno využít nástroj \href{https://github.com/kimci86/bkcrack}{bkcrack}. K použití nástroje je ale nutné mít alespoň nějaký known plaintext, k čemuž lze využít hlaviček XML souborů. Do nově vytvořeného prázdného souboru souboru \texttt{known.xml} je tedy nutno zapsat část hlavičky, kterou pravděpodobně obsahuje každý XML soubor (\verb|<?xml version="1.0" |). Poté už je možno plně využít nástroje \texttt{bkcrack} a~odhalit šifrovací klíče, s~jejichž pomocí lze vytvořit kopii archivu s~vlastním heslem. Pak už jen stačí otevřít vytvořenou kopii archivu, zadat vlastní heslo a~v souboru \texttt{scroll.xml} objevit tajemství E.   
 
 
+\newpage
+\section*{Přílohy}
+\begin{lstlisting}[
+  caption=Výstup nástroje NMAP]
+Starting Nmap 7.92 ( https://nmap.org ) at 2024-10-08 13:29 UTC
+Nmap scan report for 10.89.1.1
+Host is up (0.00036s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+53/tcp open  domain
+
+Nmap scan report for bis2024_admin_1 (10.89.1.2)
+Host is up (0.00039s latency).
+All 1000 scanned ports on bis2024_admin_1 (10.89.1.2) are in ignored states.
+Not shown: 1000 closed tcp ports (conn-refused)
+
+Nmap scan report for bis2024_rivendell_1 (10.89.1.3)
+Host is up (0.00040s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+22/tcp open  ssh
+
+Nmap scan report for bis2024_isengard_1 (10.89.1.4)
+Host is up (0.00040s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+80/tcp open  http
+
+Nmap scan report for bis2024_edoras_1 (10.89.1.5)
+Host is up (0.00032s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+21/tcp open  ftp
+
+Nmap scan report for bis2024_mirkwood_1 (10.89.1.6)
+Host is up (0.00028s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+80/tcp open  http
+
+Nmap scan report for 5f761eacb4ba (10.89.1.12)
+Host is up (0.00033s latency).
+Not shown: 999 closed tcp ports (conn-refused)
+PORT   STATE SERVICE
+22/tcp open  ssh
+
+Nmap done: 256 IP addresses (7 hosts up) scanned in 15.76 seconds
+\end{lstlisting}
 
 \end{document}

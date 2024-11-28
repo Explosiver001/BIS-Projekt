@@ -60,6 +60,12 @@ Notes: Mirkwood, possible File inclusion
 
 ?: curl -v -X POST  -H "Content-Type: multipart/form-data" -F "file=@img.gif;type=image/jpeg" http://10.89.1.6/upload.php
 
+
+echo -ne '\xFF\xD8\xFF\n' > script.jpg.php
+
+
+
+
 ********** HINT D **********
 The dark forest is a place of many webs and bugs, some of them hardly visible.
 
@@ -98,3 +104,6 @@ But Elrond is very persistent - he knows that the chest hides something.
 Notes: Rivendell, username: elrond
 
 chest.img in /shrine
+
+bkcrack -C 2800000.zip -c scroll.xml -p scroll.xml
+bkcrack -C 2800000.zip -k 685ca420 fd16a6fa 6f2164cb -U cracked.zip heslo
